@@ -1,6 +1,6 @@
 import csv
 
-class graph:
+class Graph:
 
     def __init__(self, vertex_path=None, edge_path=None):
         self._adjacency_list = {}
@@ -10,7 +10,7 @@ class graph:
 
     @property
     def adjacency_list(self):
-        return self.adjacency_list
+        return self._adjacency_list
 
     @adjacency_list.setter
     def adjacency_list(self, adjacency_list):
@@ -86,6 +86,109 @@ class graph:
                     vertex_B=int(row[1]),
                     cost_vector=cost_vector
                 )
+
+class MOAsolver:
+
+    def __init__(self, graph, start_node, goal_list):
+
+        # Store graph
+        assert isinstance(graph, Graph)
+        self.graph = graph
+
+        # Create Open list initialized with the start node
+        assert start_node in graph.vertex_list
+        self.OPEN = [start_node]
+        self.graph.vertex_list[start_node]['G'].append((0, 0))
+        # For each G associated with the node, assign an F[i] = G[i] + H
+        self.graph.vertex_list[start_node]['F'].append(tuple([sum(x) for x in zip(
+            self.graph.vertex_list[start_node]['G'][0],
+            self.graph.vertex_list[start_node]['H']
+        )]))
+
+        # Initialize empty lists for CLOSED, SOLUTION, SOLUTION_COSTS, LABEL
+        self.SOLUTION_GOALS = []
+        self.SOLUTION_COSTS = []
+        self.CLOSED = []
+        self.SOLUTION = []
+        self.LABEL = []
+
+    def cost_dominates(self, F1, F2):
+        """
+        If all elements of F1 >= F2 and at least 1 element of F1 > F2
+            return True
+        else
+            return False
+        """
+        temp = False
+        for elem1, elem2 in zip(F1, F2):
+            if elem2 > elem1:
+                return False    # all elem1 >= elem2 condition failed
+            elif elem1 > elem2:
+                temp = True     # at least 1 elem1 > elem2 satisfied
+        return temp
+
+    def _find_non_dominated(self, vertices):
+
+        ND = []
+
+        def not_dominated(vertex1, vertex2):
+            """
+            IF there is at least 1 cost vector in vertex1 that is not dominated by
+            any cost vector in vertex2
+            """
+            if isinstance(vertex2, int):
+                second_iterator = self.graph.vertex_list[vertex2]['F']
+            else:
+                second_iterator = list[vertex2]
+
+            for F1 in self.graph.vertex_list[vertex1]['F']:
+                flag = True
+                for F2 in second_iterator:
+                    if self.cost_dominates(F2, F1):
+                        # F1 is fully dominated by F2
+                        # So this F1 does not satisfy the criteria (there exists F1 which is not dominmated by any F2)
+                        flag = False
+                        break
+                if flag is True:
+                    # An F1 has been found which no F2 dominates
+                    return True
+                # else continue searching with next F1
+            
+            return False # No F1 has been found so return False
+
+        # Check whether other a vertex is not dominated by any other potential solution represented by another vertex
+        temp_ND = []
+        for vertex in vertices:
+            nd_flag = True
+            for other_vertex in vertices:
+                if vertex != other_vertex:
+                    if not not_dominated(vertex, other_vertex):
+                        # If vertex1 is not not-dominated by the other vertex, vertex1 does not belong in ND
+                        nd_flag = False
+                        break
+            if nd_flag is True:
+                temp_ND.append(vertex)
+
+        # Check whether a vertex that qualified the previous round is also not dominated by any existing solution
+        for vertex in temp_ND:
+            flag = True
+            for cost in self.SOLUTION_COSTS:    #TODO: Check data structure of SOLUTION_COSTS and cost
+                                                #      Current assumption - cost is a single vector (tuple)
+                if not not_dominated(vertex, [cost]):
+                    # vertex does not have a single F that is not dominated by cost
+                    flag = False
+                    break
+            if flag is True
+            ND.append(vertex)
+
+        return ND
+
+    def MOA(self):
+
+        while(True):
+
+            ###### FIND ND ######
+            ND = self._find_non_dominated(self.OPEN)
 
 def main():
     
