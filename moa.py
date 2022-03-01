@@ -178,8 +178,8 @@ class MOAsolver:
                     # vertex does not have a single F that is not dominated by cost
                     flag = False
                     break
-            if flag is True
-            ND.append(vertex)
+            if flag is True:
+                ND.append(vertex)
 
         return ND
 
@@ -195,7 +195,7 @@ def main():
     vertex_path = "./input/toy_graph_vertex.csv"
     edge_path = "./input/toy_graph_edges.csv"
 
-    G = graph(vertex_path=vertex_path, edge_path=edge_path)
+    G = Graph(vertex_path=vertex_path, edge_path=edge_path)
 
     for vertex in G.vertex_list:
         print(G.vertex_list[vertex])
