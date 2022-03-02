@@ -1,5 +1,6 @@
 import csv
 import copy
+from lib2to3.pgen2 import grammar
 
 class Graph:
 
@@ -372,48 +373,231 @@ class MOAsolver:
             if verbose==1:
                 print("******************************")
 
+class DFBBsolver:
 
+    def __init__(self, graph, start_node, goal_list):
 
-    def test_ND(self):
+        # Store graph
+        assert isinstance(graph, Graph)
+        self.graph = graph
 
-        self.OPEN.append(1)
-        self.graph.vertex_list[1]['G'].append((5, 6))
+        # Keep list of goal nodes
+        self.goal_nodes = set(goal_list)
+
+        # Create Open list initialized with the start node
+        assert start_node in graph.vertex_list
+        self.OPEN = set([start_node])
+        self.graph.vertex_list[start_node]['G'].append((0, 0))
         # For each G associated with the node, assign an F[i] = G[i] + H
-        self.graph.vertex_list[1]['F'].append(tuple([sum(x) for x in zip(
-            self.graph.vertex_list[1]['G'][0],
-            self.graph.vertex_list[1]['H']
+        self.graph.vertex_list[start_node]['F'].append(tuple([sum(x) for x in zip(
+            self.graph.vertex_list[start_node]['G'][0],
+            self.graph.vertex_list[start_node]['H']
         )]))
+        self.graph.vertex_list[start_node]['path'].append([start_node])
 
-        self.OPEN.append(2)
-        self.graph.vertex_list[2]['G'].append((4, 5))
-        # For each G associated with the node, assign an F[i] = G[i] + H
-        self.graph.vertex_list[2]['F'].append(tuple([sum(x) for x in zip(
-            self.graph.vertex_list[2]['G'][0],
-            self.graph.vertex_list[2]['H']
-        )]))
+        # Initialize empty lists for CLOSED, SOLUTION, BEST_COST
+        self.BEST_COSTS = [{'node' : -1, 'G' : (1e10, 1e10), 'path' : []}]
+        self.CLOSED = set([])
 
-        self.OPEN.append(3)
-        self.graph.vertex_list[3]['G'].append((8, 10))
-        self.graph.vertex_list[3]['G'].append((7, 9))
-        # For each G associated with the node, assign an F[i] = G[i] + H
-        for i in range(len(self.graph.vertex_list[3]['G'])):
-            self.graph.vertex_list[3]['F'].append(tuple([sum(x) for x in zip(
-                self.graph.vertex_list[3]['G'][i],
-                self.graph.vertex_list[3]['H']
-            )]))
+    def cost_dominates(self, F1, F2):
+        """
+        If all elements of F1 <= F2 and at least 1 element of F1 < F2
+            return True
+        else
+            return False
+        """
+        temp = False
+        for elem1, elem2 in zip(F1, F2):
+            if elem2 < elem1:
+                return False    # all elem1 >= elem2 condition failed
+            elif elem1 < elem2:
+                temp = True     # at least 1 elem1 > elem2 satisfied
+        return temp
 
-        print(self.OPEN)
-        print(self._find_non_dominated(self.OPEN))
+    def cost_equivalent(self, F1, F2):
+        """
+        Check if two costs are equivalent
+        """
+        return F1 == F2
+
+    def non_dominated_best_costs(self):
+        """
+        Find set of non-dominated costs in BEST_COSTS
+        """
+        ND = []
+        for item1 in self.BEST_COSTS:
+            nd_flag = True
+            for item2 in self.BEST_COSTS:
+                if item1 != item2:
+                    if self.cost_dominates(item2['G'], item1['G']):
+                        # item2 dominates item1
+                        # item1 is not a candidate for ND
+                        nd_flag = False
+                        break
+            if nd_flag is True:
+                # No other item in BEST_COSTS dominates item1
+                # item1 is non-dominated
+                ND.append(item1)
+        return ND
+
+    def backtrack(self, node):
+        """
+        Backtrack if there does not exist any F in node that is not-dominated by any Best-Cost
+        """
+        for F in self.graph.vertex_list[node]['F']:
+            flag = True
+            for cost in self.BEST_COSTS:
+                bestG = cost['G']
+                if self.cost_dominates(bestG, F):
+                    # BestG dominates this F
+                    # So search for another F
+                    flag = False
+            if flag is True:
+                # Found an F that is not dominated by any BestG
+                # Should Expand
+                return False # Expand
+        # Could not find an F that is not dominated by any BestG
+        # Backtrack
+        return True
+
+    def terminate(self):
+        print("SOLUTIONS FOUND -")
+        for item in self.BEST_COSTS:
+            print("Goal: ", item['node'], "\tCost: ", item['G'], "\tPath: ", item['path'])
+
+    def DFBB(self, verbose=0):
+
+        def accrued_non_dominated_paths(n):
+            ND = {'G' : [], 'path' : []}
+            for G1, path1 in zip(self.graph.vertex_list[n]['G'], self.graph.vertex_list[n]['path']):
+                flag = True
+                for G2 in self.graph.vertex_list[n]['G']:
+                    if G1 != G2:
+                        if self.cost_dominates(G2, G1):
+                            # G1 is fully dominated by G2
+                            # So G1 must be removed
+                            flag = False
+                            break
+                if flag is True:
+                    ND['G'].append(G1)
+                    ND['path'].append(path1)
+            return ND
+
+        iter = 0
+        while True:
+
+            if verbose==1:
+                print("Iter: ", iter)
+                print("OPEN: ", self.OPEN)
+                print("CLOSED: ", self.CLOSED)
+                print("BEST_COSTS: ", self.BEST_COSTS)
+
+            iter += 1
+
+            # Break if Open list is empty
+            if len(self.OPEN) == 0:
+                if verbose==1:
+                    print("******************************")
+                self.terminate()
+                break
+
+            # Pick a node from OPEN and put it in CLOSED
+            node = self.OPEN.pop()
+            self.CLOSED.add(node)
+
+            # Decide whether to backtrack from node
+            if self.backtrack(node):
+                ###### DEBUG ########
+                # if (node == 9):
+                #     print("DEBUG")
+                #     print(self.graph.vertex_list[node]['G'])
+                #     print(self.BEST_COSTS)
+                #     z = input()
+                #####################
+                if verbose==1:
+                    print("BACKTRACK: ", node)
+                    print("BACKTRACKED COST: ", self.graph.vertex_list[node]['F'])
+                    print("******************************")
+                continue
+            else:
+                if node not in self.graph.adjacency_list:
+                    # Leaf node detected
+                    # Backtrack
+                    if verbose == 1:
+                        print("BACKTRACK: ", node)
+                        print("BACKTRACKED COST: ", self.graph.vertex_list[node]['F'])
+                        print("******************************")
+                    continue
+                else:
+                    if verbose==1:
+                        print("EXPAND: ", node)
+
+            # Expand this node if we do not backtrack
+            for next_node_dict in self.graph.adjacency_list[node]:
+
+                next_node = next_node_dict['next']
+                cost = next_node_dict['cost']
+
+                # Compute G for next node
+                for G in self.graph.vertex_list[node]['G']:
+                    nextG = tuple([sum(x) for x in zip(
+                        G,
+                        cost
+                    )])
+                    assert (len(nextG) == 2)
+                    self.graph.vertex_list[next_node]['G'].append(nextG)
+                # Establish backpointers
+                for path in self.graph.vertex_list[node]['path']:
+                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
+
+                # Find non-dominated costs
+                nd_costs = accrued_non_dominated_paths(next_node)
+                assert isinstance(nd_costs['G'], list)
+                assert isinstance(nd_costs['path'], list)
+                self.graph.vertex_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
+                self.graph.vertex_list[next_node]['path'] = copy.deepcopy(nd_costs['path'])
+
+                # Update F for next_node
+                self.graph.vertex_list[next_node]['F'] = []
+                for G in self.graph.vertex_list[next_node]['G']:
+                    self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
+                        G,
+                        self.graph.vertex_list[next_node]['H']
+                    )]))
+
+                self.OPEN.add(next_node)
+                if next_node in self.CLOSED:
+                    self.CLOSED.remove(next_node)
+
+                # Update best costs if next_node is goal node
+                if next_node in self.goal_nodes:
+                    for G, path in zip(self.graph.vertex_list[next_node]['G'], self.graph.vertex_list[next_node]['path']):
+                        self.BEST_COSTS.append(
+                            {'node' : next_node, 
+                            'G' : G,
+                            'path' : path
+                            }
+                        )
+                    # Only keep those best costs that are not dominated by any other
+                    self.BEST_COSTS = self.non_dominated_best_costs()
+
+            if verbose==1:
+                print("******************************")
 
 def main():
     
     vertex_path = "./input/test_graph_vertex.csv"
     edge_path = "./input/test_graph_edges.csv"
 
-    G = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    moa = MOAsolver(G, 0, [8, 9, 10])
+    # G1 = Graph(vertex_path=vertex_path, edge_path=edge_path)
+    # moa = MOAsolver(G1, 0, [8, 9, 10])
 
-    moa.MOA(verbose=1)
+    # moa.MOA(verbose=1)
+
+    G2 = Graph(vertex_path=vertex_path, edge_path=edge_path)
+    dfbb = DFBBsolver(G2, 0, [8, 9, 10])
+
+    dfbb.DFBB(verbose=1)
 
 if __name__ == '__main__':
     main()
