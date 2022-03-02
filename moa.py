@@ -173,21 +173,7 @@ class MOAsolver:
                         # If vertex1 is not not-dominated by the other vertex, vertex1 does not belong in ND
                         nd_flag = False
                         break
-                    #### DEBUG #####
-                    # if (vertex == 3) and (nd_flag is True):
-                    #     print("DEBUG STEP")
-                    #     print(other_vertex)
-                    #     print(not_dominated(vertex, other_vertex, verbose=1))
-                    #     z = input()
-                    ################
             if nd_flag is True:
-                #### DEBUG ####
-                # if (vertex == 3):
-                #     print("3: ",self.graph.vertex_list[vertex])
-                #     for other in vertices:
-                #         print(other, ": ", self.graph.vertex_list[other])
-                #     z = input()
-                ###############
                 temp_ND.append(vertex)
 
         # Check whether a vertex that qualified the previous round is also not dominated by any existing solution
@@ -207,7 +193,10 @@ class MOAsolver:
         return ND
 
     def _terminate(self):
-        print(self.SOLUTION)
+        print("SOLUTIONS FOUND -")
+        for vertex in self.SOLUTION:
+            for G, path in zip(self.SOLUTION[vertex]['G'], self.SOLUTION[vertex]['path']):
+                print("Goal: ", vertex, "\tCost: ", G, "\tPath: ", path)
 
     def _choose_from_ND(self, ND):
         # TODO: Use domain specific heuristic to choose from ND
@@ -423,10 +412,6 @@ def main():
 
     G = Graph(vertex_path=vertex_path, edge_path=edge_path)
     moa = MOAsolver(G, 0, [8, 9, 10])
-
-    F1 = (3, 2)
-    F2 = (1, 1)
-    print(moa.cost_dominates(F1, F2))
 
     moa.MOA(verbose=1)
 
