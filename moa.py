@@ -190,15 +190,46 @@ class MOAsolver:
             ###### FIND ND ######
             ND = self._find_non_dominated(self.OPEN)
 
+    def test_ND(self):
+
+        self.OPEN.append(1)
+        self.graph.vertex_list[1]['G'].append((5, 6))
+        # For each G associated with the node, assign an F[i] = G[i] + H
+        self.graph.vertex_list[1]['F'].append(tuple([sum(x) for x in zip(
+            self.graph.vertex_list[1]['G'][0],
+            self.graph.vertex_list[1]['H']
+        )]))
+
+        self.OPEN.append(2)
+        self.graph.vertex_list[2]['G'].append((4, 5))
+        # For each G associated with the node, assign an F[i] = G[i] + H
+        self.graph.vertex_list[2]['F'].append(tuple([sum(x) for x in zip(
+            self.graph.vertex_list[2]['G'][0],
+            self.graph.vertex_list[2]['H']
+        )]))
+
+        self.OPEN.append(3)
+        self.graph.vertex_list[3]['G'].append((8, 10))
+        self.graph.vertex_list[3]['G'].append((7, 9))
+        # For each G associated with the node, assign an F[i] = G[i] + H
+        for i in range(len(self.graph.vertex_list[3]['G'])):
+            self.graph.vertex_list[3]['F'].append(tuple([sum(x) for x in zip(
+                self.graph.vertex_list[3]['G'][i],
+                self.graph.vertex_list[3]['H']
+            )]))
+
+        print(self.OPEN)
+        print(self._find_non_dominated(self.OPEN))
+
 def main():
     
     vertex_path = "./input/toy_graph_vertex.csv"
     edge_path = "./input/toy_graph_edges.csv"
 
     G = Graph(vertex_path=vertex_path, edge_path=edge_path)
+    moa = MOAsolver(G, 0, [3])
 
-    for vertex in G.vertex_list:
-        print(G.vertex_list[vertex])
+    moa.test_ND()
 
 if __name__ == '__main__':
     main()
