@@ -136,13 +136,14 @@ class Graph:
 
 class MOAsolver:
 
-    def __init__(self, graph, start_node):
+    def __init__(self, graph):
 
         # Store graph
         assert isinstance(graph, Graph)
         self.graph = graph
 
-        self.start_node = start_node
+        self.start_node = self.graph.start_node
+        start_node = self.start_node
 
         # Create Open list initialized with the start node
         assert start_node in graph.adjacency_list
@@ -422,28 +423,31 @@ class MOAsolver:
 
 class DFBBsolver:
 
-    def __init__(self, graph, start_node, goal_list):
+    def __init__(self, graph):
 
         # Store graph
         assert isinstance(graph, Graph)
         self.graph = graph
 
-        # Keep list of goal nodes
-        self.goal_nodes = set(goal_list)
+        self.start_node = self.graph.start_node
+        start_node = self.start_node
 
         # Create Open list initialized with the start node
-        assert start_node in graph.vertex_list
-        self.OPEN = set([start_node])
-        self.graph.vertex_list[start_node]['G'].append((0, 0))
+        assert start_node in graph.adjacency_list
+        start_state = tuple([start_node])
+        self.OPEN = set([start_state])
+
+        self.graph.generate_state(start_state)
+        self.graph.state_list[start_state]['G'].append((0, 0))
+        self.graph.state_list[start_state]['H']
         # For each G associated with the node, assign an F[i] = G[i] + H
-        self.graph.vertex_list[start_node]['F'].append(tuple([sum(x) for x in zip(
-            self.graph.vertex_list[start_node]['G'][0],
-            self.graph.vertex_list[start_node]['H']
+        self.graph.state_list[start_state]['F'].append(tuple([sum(x) for x in zip(
+            self.graph.state_list[start_state]['G'][0],
+            self.graph.state_list[start_state]['H']
         )]))
-        self.graph.vertex_list[start_node]['path'].append([start_node])
 
         # Initialize empty lists for CLOSED, SOLUTION, BEST_COST
-        self.BEST_COSTS = [{'node' : -1, 'G' : (1e10, 1e10), 'path' : []}]
+        self.BEST_COSTS = [{'node' : (-1,), 'G' : (1e10, 1e10)}]
         self.CLOSED = set([])
 
     def cost_dominates(self, F1, F2):
@@ -491,7 +495,7 @@ class DFBBsolver:
         """
         Backtrack if there does not exist any F in node that is not-dominated by any Best-Cost
         """
-        for F in self.graph.vertex_list[node]['F']:
+        for F in self.graph.state_list[node]['F']:
             flag = True
             for cost in self.BEST_COSTS:
                 bestG = cost['G']
@@ -510,15 +514,23 @@ class DFBBsolver:
     def terminate(self):
         print("SOLUTIONS FOUND -")
         for item in self.BEST_COSTS:
-            print("Goal: ", item['node'], "\tCost: ", item['G'], "\tPath: ", item['path'])
+            print("\tCost: ", item['G'], "\tPath: ", list(item['node']))
+
+    def is_goal(self, state):
+
+        assert(state[0] == self.start_node)
+        if (len(state) == self.graph._num_vertices+1) and state[-1] == self.start_node:
+            return True
+        else:
+            return False
 
     def DFBB(self, verbose=0):
 
         def accrued_non_dominated_paths(n):
-            ND = {'G' : [], 'path' : []}
-            for G1, path1 in zip(self.graph.vertex_list[n]['G'], self.graph.vertex_list[n]['path']):
+            ND = {'G' : []}
+            for G1 in self.graph.state_list[n]['G']:
                 flag = True
-                for G2 in self.graph.vertex_list[n]['G']:
+                for G2 in self.graph.state_list[n]['G']:
                     if G1 != G2:
                         if self.cost_dominates(G2, G1):
                             # G1 is fully dominated by G2
@@ -527,7 +539,6 @@ class DFBBsolver:
                             break
                 if flag is True:
                     ND['G'].append(G1)
-                    ND['path'].append(path1)
             return ND
 
         iter = 0
@@ -556,53 +567,57 @@ class DFBBsolver:
             if self.backtrack(node):
                 if verbose==1:
                     print("BACKTRACK: ", node)
-                    print("BACKTRACKED COST: ", self.graph.vertex_list[node]['F'])
+                    print("BACKTRACKED COST: ", self.graph.state_list[node]['F'])
                     print("******************************")
                 continue
             else:
-                if node not in self.graph.adjacency_list:
+                if node[-1] not in self.graph.adjacency_list:
                     # Leaf node detected
+                    # Not possible in TSP hence must assert false
+                    raise Exception("Graph cannot be traversed by salesperson")
                     # Backtrack
                     if verbose == 1:
                         print("BACKTRACK: ", node)
-                        print("BACKTRACKED COST: ", self.graph.vertex_list[node]['F'])
+                        print("BACKTRACKED COST: ", self.graph.state_list[node]['F'])
                         print("******************************")
                     continue
                 else:
                     if verbose==1:
                         print("EXPAND: ", node)
 
+            # Get next nodes
+            next_state_list = self.graph.get_next_states(node)
+
             # Expand this node if we do not backtrack
-            for next_node_dict in self.graph.adjacency_list[node]:
+            for next_node_dict in next_state_list:
 
                 next_node = next_node_dict['next']
                 cost = next_node_dict['cost']
 
+                if next_node not in self.graph.state_list:
+                    # Generate new TSP state at runtime
+                    self.graph.generate_state(next_node)
+
                 # Compute G for next node
-                for G in self.graph.vertex_list[node]['G']:
+                for G in self.graph.state_list[node]['G']:
                     nextG = tuple([sum(x) for x in zip(
                         G,
                         cost
                     )])
                     assert (len(nextG) == 2)
-                    self.graph.vertex_list[next_node]['G'].append(nextG)
-                # Establish backpointers
-                for path in self.graph.vertex_list[node]['path']:
-                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
+                    self.graph.state_list[next_node]['G'].append(nextG)
 
                 # Find non-dominated costs
                 nd_costs = accrued_non_dominated_paths(next_node)
                 assert isinstance(nd_costs['G'], list)
-                assert isinstance(nd_costs['path'], list)
-                self.graph.vertex_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
-                self.graph.vertex_list[next_node]['path'] = copy.deepcopy(nd_costs['path'])
+                self.graph.state_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
 
                 # Update F for next_node
-                self.graph.vertex_list[next_node]['F'] = []
-                for G in self.graph.vertex_list[next_node]['G']:
-                    self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
+                self.graph.state_list[next_node]['F'] = []
+                for G in self.graph.state_list[next_node]['G']:
+                    self.graph.state_list[next_node]['F'].append(tuple([sum(x) for x in zip(
                         G,
-                        self.graph.vertex_list[next_node]['H']
+                        self.graph.state_list[next_node]['H']
                     )]))
 
                 self.OPEN.add(next_node)
@@ -610,12 +625,11 @@ class DFBBsolver:
                     self.CLOSED.remove(next_node)
 
                 # Update best costs if next_node is goal node
-                if next_node in self.goal_nodes:
-                    for G, path in zip(self.graph.vertex_list[next_node]['G'], self.graph.vertex_list[next_node]['path']):
+                if self.is_goal(next_node):
+                    for G in self.graph.state_list[next_node]['G']:
                         self.BEST_COSTS.append(
                             {'node' : next_node, 
-                            'G' : G,
-                            'path' : path
+                            'G' : G
                             }
                         )
                     # Only keep those best costs that are not dominated by any other
@@ -626,18 +640,13 @@ class DFBBsolver:
 
 class IDMOAsolver:
 
-    def __init__(self, graph, start_node, goal_list):
+    def __init__(self, graph):
 
         # Store graph
         assert isinstance(graph, Graph)
         self.graph = graph
-        self.start_node = start_node
-
-        # Keep list of goal nodes
-        self.goal_nodes = set(goal_list)
-
-        # Create Open list initialized with the start node
-        assert start_node in graph.vertex_list
+        self.start_node = self.graph.start_node
+        self.start_state = tuple([self.start_node])
 
         self.SOLUTIONS = []
 
@@ -646,15 +655,18 @@ class IDMOAsolver:
     def reset(self):
         # Initialize empty sets for closed, open
         self.CLOSED = set([])
-        self.OPEN = set([self.start_node])
+        start_state = tuple([self.start_node])
+        self.OPEN = set([start_state])
         self.graph.reset_costs()
-        self.graph.vertex_list[self.start_node]['G'].append((0, 0))
+    
+        self.graph.generate_state(start_state)
+        self.graph.state_list[start_state]['G'].append((0, 0))
+        self.graph.state_list[start_state]['H']
         # For each G associated with the node, assign an F[i] = G[i] + H
-        self.graph.vertex_list[self.start_node]['F'].append(tuple([sum(x) for x in zip(
-            self.graph.vertex_list[self.start_node]['G'][0],
-            self.graph.vertex_list[self.start_node]['H']
+        self.graph.state_list[start_state]['F'].append(tuple([sum(x) for x in zip(
+            self.graph.state_list[start_state]['G'][0],
+            self.graph.state_list[start_state]['H']
         )]))
-        self.graph.vertex_list[self.start_node]['path'].append([self.start_node])
 
     def non_dominated_best_costs(self):
         """
@@ -674,7 +686,16 @@ class IDMOAsolver:
                 # No other item in BEST_COSTS dominates item1
                 # item1 is non-dominated
                 ND.append(item1)
-        return ND
+        pop_idx = set()
+        clean_ND = []
+        for i in range(len(ND)):
+            for j in range(i+1, len(ND)):
+                if ND[i]['G'] == ND[j]['G'] and ND[i]['node'] == ND[j]['node']:
+                    pop_idx.add(i)
+        for i in range(len(ND)):
+            if i not in pop_idx:
+                clean_ND.append(ND[i])
+        return clean_ND
 
     def backtrack(self, node, threshold, objective_idx):
         """
@@ -683,15 +704,15 @@ class IDMOAsolver:
         assert objective_idx <= 1 and objective_idx >= 0
         assert isinstance(threshold, int)
         if objective_idx == 0:
-            assert len(self.graph.vertex_list[node]['G']) == 1
-            cost = self.graph.vertex_list[node]['G'][0][objective_idx]
+            assert len(self.graph.state_list[node]['G']) == 1
+            cost = self.graph.state_list[node]['G'][0][objective_idx]
             if cost > threshold:
                 return True
             else:
                 return False
         else:
-            if len(self.graph.vertex_list[node]['G']) == 1:
-                cost = self.graph.vertex_list[node]['G'][0][objective_idx]
+            if len(self.graph.state_list[node]['G']) == 1:
+                cost = self.graph.state_list[node]['G'][0][objective_idx]
                 if cost > threshold:
                     return True
                 else:
@@ -699,22 +720,20 @@ class IDMOAsolver:
             else:
                 cntr = 0
                 remove_G = []
-                for G in self.graph.vertex_list[node]['G']:
+                for G in self.graph.state_list[node]['G']:
                     cost = G[objective_idx]
                     if cost > threshold:
                         remove_G.append(G)
                         cntr += 1
-                if cntr == len(self.graph.vertex_list[node]['G']):
+                if cntr == len(self.graph.state_list[node]['G']):
                     # All of the paths are worthless
-                    self.graph.vertex_list[node]['G'] = []
-                    self.graph.vertex_list[node]['path'] = []
+                    self.graph.state_list[node]['G'] = []
                     return True      # So backtrack
                 else:
                     # Some good paths exist, so don't backtrack but remove bad paths
                     for G in remove_G:
-                        idx = self.graph.vertex_list[node]['G'].index(G)
-                        self.graph.vertex_list[node]['G'].pop(idx)
-                        self.graph.vertex_list[node]['path'].pop(idx)
+                        idx = self.graph.state_list[node]['G'].index(G)
+                        self.graph.state_list[node]['G'].pop(idx)
                     return False    # Do not backtrack
 
     def cost_dominates(self, F1, F2, objective_idx):
@@ -732,13 +751,21 @@ class IDMOAsolver:
                     temp = True     # at least 1 elem1 > elem2 satisfied
             return temp
 
+    def is_goal(self, state):
+
+        assert(state[0] == self.start_node)
+        if (len(state) == self.graph._num_vertices+1) and state[-1] == self.start_node:
+            return True
+        else:
+            return False
+
     def search(self, objective_idx, threshold, find_all=False, verbose=1):
 
         def accrued_non_dominated_paths(n, objective_idx):
-            ND = {'G' : [], 'path' : []}
-            for G1, path1 in zip(self.graph.vertex_list[n]['G'], self.graph.vertex_list[n]['path']):
+            ND = {'G' : []}
+            for G1 in self.graph.state_list[n]['G']:
                 flag = True
-                for G2 in self.graph.vertex_list[n]['G']:
+                for G2 in self.graph.state_list[n]['G']:
                     if G1 != G2:
                         if self.cost_dominates(G2, G1, objective_idx):
                             # G1 is fully dominated by G2
@@ -747,7 +774,6 @@ class IDMOAsolver:
                             break
                 if flag is True:
                     ND['G'].append(G1)
-                    ND['path'].append(path1)
             return ND
 
         BACKTRACKED = []
@@ -775,17 +801,18 @@ class IDMOAsolver:
                 # Must backtrack
                 if verbose==1:
                     print("BACKTRACK: ", node)
-                    print("BACKTRACKED COST: ", self.graph.vertex_list[node]['F'])
+                    print("BACKTRACKED COST: ", self.graph.state_list[node]['F'])
                     print("******************************")
                 BACKTRACKED.append({
                     'node' : node, 
-                    'F' : self.graph.vertex_list[node]['F'],
-                    'path' : self.graph.vertex_list[node]['path']
+                    'F' : self.graph.state_list[node]['F'],
                 })
                 continue
 
             # Continue if node is a leaf
-            if node not in self.graph.adjacency_list:
+            if node[-1] not in self.graph.adjacency_list:
+                # Not possible for TSP so assert False
+                raise Exception("Graph cannot be traversed by salesperson")
                 if verbose==1:
                     print("BACKTRACK: ", node)
                     print("BACKTRACKED COST: ", self.graph.vertex_list[node]['F'])
@@ -797,83 +824,83 @@ class IDMOAsolver:
                 })
                 continue
 
+            # Check if node is goal node
+            if self.is_goal(node) and not find_all:
+                # Goal node found
+                # Break
+                BACKTRACKED.append({
+                    'node' : node, 
+                    'F' : self.graph.state_list[node]['F'],
+                })
+                break
+            elif self.is_goal(node):
+                # Goal node found
+                # But do not break
+                BACKTRACKED.append({
+                    'node' : node, 
+                    'F' : self.graph.state_list[node]['F'],
+                })
+
             if verbose==1:
                 print("EXPAND: ", node)
                 print("******************************")
 
-            for next_node_dict in self.graph.adjacency_list[node]:
+            # Get next nodes
+            next_state_list = self.graph.get_next_states(node)
+
+            for next_node_dict in next_state_list:
 
                 next_node = next_node_dict['next']
                 cost = next_node_dict['cost']
 
+                if next_node not in self.graph.state_list:
+                    # Generate new TSP state at runtime
+                    self.graph.generate_state(next_node)
+
                 # Compute G for next node
-                for G in self.graph.vertex_list[node]['G']:
+                for G in self.graph.state_list[node]['G']:
                     nextG = tuple([sum(x) for x in zip(
                         G,
                         cost
                     )])
                     assert (len(nextG) == 2)
-                    self.graph.vertex_list[next_node]['G'].append(nextG)
-                # Establish backpointers
-                for path in self.graph.vertex_list[node]['path']:
-                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
+                    self.graph.state_list[next_node]['G'].append(nextG)
 
                 # Find non-dominated costs
                 nd_costs = accrued_non_dominated_paths(next_node, objective_idx)
                 assert isinstance(nd_costs['G'], list)
-                assert isinstance(nd_costs['path'], list)
-                self.graph.vertex_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
-                self.graph.vertex_list[next_node]['path'] = copy.deepcopy(nd_costs['path'])
+                self.graph.state_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
 
                 # Update F for next_node
-                self.graph.vertex_list[next_node]['F'] = []
-                for G in self.graph.vertex_list[next_node]['G']:
-                    self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
+                self.graph.state_list[next_node]['F'] = []
+                for G in self.graph.state_list[next_node]['G']:
+                    self.graph.state_list[next_node]['F'].append(tuple([sum(x) for x in zip(
                         G,
-                        self.graph.vertex_list[next_node]['H']
+                        self.graph.state_list[next_node]['H']
                     )]))
 
                 self.OPEN.add(next_node)
                 if next_node in self.CLOSED:
                     self.CLOSED.remove(next_node)
 
-                # Check if next node is goal node
-                if node in self.goal_nodes and not find_all:
-                    # Goal node found
-                    # Break
-                    BACKTRACKED.append({
-                        'node' : node, 
-                        'F' : self.graph.vertex_list[node]['F'],
-                        'path' : self.graph.vertex_list[node]['path']
-                    })
-                    break
-                elif node in self.goal_nodes:
-                    # Goal node found
-                    # But do not break
-                    BACKTRACKED.append({
-                        'node' : node, 
-                        'F' : self.graph.vertex_list[node]['F'],
-                        'path' : self.graph.vertex_list[node]['path']
-                    })
-
         return BACKTRACKED
 
     def IDA_1(self, verbose=0):
 
-        threshold = self.graph.vertex_list[self.start_node]['F'][0][0]
+        threshold = self.graph.state_list[self.start_state]['F'][0][0]
 
         while True:
 
             self.reset()
             assert isinstance(threshold, int)
-            BACKTRACKED = self.search(0, threshold, False, verbose = verbose)
+            BACKTRACKED = self.search(0, threshold, False, verbose = verbose)       ###########################################################
             assert len(BACKTRACKED) > 0
 
             min_threshold = 1e10
             min_idx = -1
             idx = 0
             for item in BACKTRACKED:
-                if item['node'] in self.goal_nodes:
+                if self.is_goal(item['node']):
                     return item
                 assert len(item['F']) == 1
                 if item['F'][0][0] < min_threshold:
@@ -893,7 +920,7 @@ class IDMOAsolver:
         assert len(BACKTRACKED) > 0
 
         for item in BACKTRACKED:
-            if item['node'] in self.goal_nodes:
+            if self.is_goal(item['node']):
                 SOLUTIONS.append(item)
 
         return SOLUTIONS
@@ -911,37 +938,39 @@ class IDMOAsolver:
         unfiltered_solutions = self.IDA_2(new_threshold, verbose=verbose)
 
         for item in unfiltered_solutions:
-            for F, path in zip(item['F'], item['path']):
+            for F in item['F']:
                 self.SOLUTIONS.append({
                     'node' : item['node'],
                     'G' : F,
-                    'path' : path
                 })
 
         self.SOLUTIONS = self.non_dominated_best_costs()
 
         print("SOLUTIONS FOUND -")
         for item in self.SOLUTIONS:
-            print("Goal: ", item['node'], "\tCost: ", item['G'], "\tPath: ", item['path'])
+            print("\tCost: ", item['G'], "\tPath: ", list(item['node']))
 
 def main():
     
-    edge_path = "./input/tsp_graph_edges.csv"
+    edge_path = "./input/tsp_graph_edges_2.csv"
 
     G1 = Graph(0, 5, edge_path=edge_path)
-    moa = MOAsolver(G1, 0)
+    moa = MOAsolver(G1)
 
-    moa.MOA(verbose=1)
+    print("Using MOA*")
+    moa.MOA(verbose=0)
 
-    # G2 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    # dfbb = DFBBsolver(G2, 0, [8, 9, 10])
+    G2 = Graph(0, 5, edge_path=edge_path)
+    dfbb = DFBBsolver(G2)
 
-    # dfbb.DFBB(verbose=1)
+    print("\nUsing DFBB")
+    dfbb.DFBB(verbose=0)
 
-    # G3 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    # idmoa = IDMOAsolver(G3, 0, [8, 9, 10])
+    G3 = Graph(0, 5, edge_path=edge_path)
+    idmoa = IDMOAsolver(G3)
 
-    # idmoa.IDMOA(verbose=1)
+    print("\nUsing IDMOA*")
+    idmoa.IDMOA(verbose=0)
 
 
 if __name__ == '__main__':

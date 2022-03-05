@@ -640,7 +640,16 @@ class IDMOAsolver:
                 # No other item in BEST_COSTS dominates item1
                 # item1 is non-dominated
                 ND.append(item1)
-        return ND
+        pop_idx = set()
+        clean_ND = []
+        for i in range(len(ND)):
+            for j in range(i+1, len(ND)):
+                if ND[i]['G'] == ND[j]['G'] and ND[i]['path'] == ND[j]['path']:
+                    pop_idx.add(i)
+        for i in range(len(ND)):
+            if i not in pop_idx:
+                clean_ND.append(ND[i])
+        return clean_ND
 
     def backtrack(self, node, threshold, objective_idx):
         """
@@ -750,6 +759,25 @@ class IDMOAsolver:
                 })
                 continue
 
+            # Check if next node is goal node
+            if node in self.goal_nodes and not find_all:
+                # Goal node found
+                # Break
+                BACKTRACKED.append({
+                    'node' : node, 
+                    'F' : self.graph.vertex_list[node]['F'],
+                    'path' : self.graph.vertex_list[node]['path']
+                })
+                break
+            elif node in self.goal_nodes:
+                # Goal node found
+                # But do not break
+                BACKTRACKED.append({
+                    'node' : node, 
+                    'F' : self.graph.vertex_list[node]['F'],
+                    'path' : self.graph.vertex_list[node]['path']
+                })
+
             # Continue if node is a leaf
             if node not in self.graph.adjacency_list:
                 if verbose==1:
@@ -802,25 +830,6 @@ class IDMOAsolver:
                 self.OPEN.add(next_node)
                 if next_node in self.CLOSED:
                     self.CLOSED.remove(next_node)
-
-                # Check if next node is goal node
-                if node in self.goal_nodes and not find_all:
-                    # Goal node found
-                    # Break
-                    BACKTRACKED.append({
-                        'node' : node, 
-                        'F' : self.graph.vertex_list[node]['F'],
-                        'path' : self.graph.vertex_list[node]['path']
-                    })
-                    break
-                elif node in self.goal_nodes:
-                    # Goal node found
-                    # But do not break
-                    BACKTRACKED.append({
-                        'node' : node, 
-                        'F' : self.graph.vertex_list[node]['F'],
-                        'path' : self.graph.vertex_list[node]['path']
-                    })
 
         return BACKTRACKED
 
@@ -895,21 +904,20 @@ def main():
     vertex_path = "./input/test_graph_vertex.csv"
     edge_path = "./input/test_graph_edges.csv"
 
-    # G1 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    # moa = MOAsolver(G1, 0, [8, 9, 10])
+    G1 = Graph(vertex_path=vertex_path, edge_path=edge_path)
+    moa = MOAsolver(G1, 0, [8, 9, 10])
 
-    # moa.MOA(verbose=1)
+    moa.MOA(verbose=0)
 
-    # G2 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    # dfbb = DFBBsolver(G2, 0, [8, 9, 10])
+    G2 = Graph(vertex_path=vertex_path, edge_path=edge_path)
+    dfbb = DFBBsolver(G2, 0, [8, 9, 10])
 
-    # dfbb.DFBB(verbose=1)
+    dfbb.DFBB(verbose=0)
 
     G3 = Graph(vertex_path=vertex_path, edge_path=edge_path)
     idmoa = IDMOAsolver(G3, 0, [8, 9, 10])
 
-    idmoa.IDMOA(verbose=1)
-
+    idmoa.IDMOA(verbose=0)
 
 if __name__ == '__main__':
     main()
