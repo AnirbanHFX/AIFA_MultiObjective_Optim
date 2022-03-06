@@ -1020,21 +1020,22 @@ class IDMOAsolver:
 
 def main():
     
-    edge_path = "./input/tsp_graph_edges_2.csv"
+    edge_path = "./input/tsp_final_edges.csv"
+    num_vertices = 10
 
-    G1 = Graph(0, 5, edge_path=edge_path)
-    moa = MOAsolver(G1)
+    # G1 = Graph(0, num_vertices, edge_path=edge_path)
+    # moa = MOAsolver(G1)
 
-    print("Using MOA*")
-    moa.MOA(verbose=0)
+    # print("Using MOA*")
+    # moa.MOA(verbose=0)
 
-    G2 = Graph(0, 5, edge_path=edge_path)
+    G2 = Graph(0, num_vertices, edge_path=edge_path)
     dfbb = DFBBsolver(G2)
 
     print("\nUsing DFBB")
     dfbb.DFBB(verbose=0)
 
-    G3 = Graph(0, 5, edge_path=edge_path)
+    G3 = Graph(0, num_vertices, edge_path=edge_path)
     idmoa = IDMOAsolver(G3)
 
     print("\nUsing IDMOA*")
