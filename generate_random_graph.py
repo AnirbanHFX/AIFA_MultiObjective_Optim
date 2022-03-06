@@ -1,9 +1,16 @@
 import random
 import csv
 import argparse
+import networkx as nx
+import matplotlib.pyplot as plt
 
 def generate_random_fully_connected_graph(num_nodes = 5, objective_bounds = [[5,100],[5,100]]):
     edge_list = []
+
+    G=nx.Graph()
+    for i in range(num_nodes):
+        G.add_node(i)
+
     for i in range(num_nodes):
         for j in range(num_nodes):
             if j > i:
@@ -14,6 +21,14 @@ def generate_random_fully_connected_graph(num_nodes = 5, objective_bounds = [[5,
                 ch2 = j
                 edge_list.append([ch1, ch2, *cost_])
                 edge_list.append([ch2, ch1, *cost_])
+                G.add_edge(ch1, ch2, weight=cost_)
+ 
+    pos = nx.circular_layout(G)
+    nx.draw(G, pos)
+    labels = nx.get_edge_attributes(G,'weight')
+    nx.draw_networkx_edge_labels(G,pos,edge_labels=labels)
+    plt.show()
+
     return edge_list
 
 def main():

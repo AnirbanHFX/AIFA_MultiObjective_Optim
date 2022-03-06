@@ -268,7 +268,7 @@ class MOAsolver:
                         print("F2 : ", F2, "F1 : ", F1)
                     if self.cost_dominates(F2, F1):
                         # F1 is fully dominated by F2
-                        # So this F1 does not satisfy the criteria (there exists F1 which is not dominmated by any F2)
+                        # So this F1 does not satisfy the criteria (there exists F1 which is not dominated by any F2)
                         flag = False
                         break
                 if flag is True:
@@ -460,7 +460,7 @@ class MOAsolver:
             if len(ND) == 0:
                 if verbose==1:
                     print("******************************")
-                self._terminate()    #TODO: Complete this function
+                self._terminate()
                 break
 
             ###### Select ######
@@ -1017,13 +1017,13 @@ class IDMOAsolver:
 def main():
     
     edge_path = "./input/tsp_final_edges.csv"
-    num_vertices = 7
+    num_vertices = 20
 
-    G1 = Graph(0, num_vertices, edge_path=edge_path)
-    moa = MOAsolver(G1)
+    # G1 = Graph(0, num_vertices, edge_path=edge_path)
+    # moa = MOAsolver(G1)
 
-    print("Using MOA*")
-    moa.MOA(verbose=0)
+    # print("Using MOA*")
+    # moa.MOA(verbose=0)
 
     G2 = Graph(0, num_vertices, edge_path=edge_path)
     dfbb = DFBBsolver(G2)
@@ -1031,11 +1031,11 @@ def main():
     print("\nUsing DFBB")
     dfbb.DFBB(verbose=0)
 
-    G3 = Graph(0, num_vertices, edge_path=edge_path)
-    idmoa = IDMOAsolver(G3)
+    # G3 = Graph(0, num_vertices, edge_path=edge_path)
+    # idmoa = IDMOAsolver(G3)
 
-    print("\nUsing IDMOA*")
-    idmoa.IDMOA(verbose=0)
+    # print("\nUsing IDMOA*")
+    # idmoa.IDMOA(verbose=0)
 
 
 if __name__ == '__main__':
