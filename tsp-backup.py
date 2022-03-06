@@ -309,10 +309,10 @@ class MOAsolver:
 
         return ND
 
-    def _terminate(self, f=None):
-        f.write("SOLUTIONS FOUND -\n")
+    def _terminate(self):
+        print("SOLUTIONS FOUND -")
         for state in self.SOLUTION:
-            f.write("Cost: %s\tPath: %s\n"%(str(self.SOLUTION[state]['G'][0]), str(list(state))))
+            print("\tCost: ", self.SOLUTION[state]['G'][0], "\tPath: ", list(state))
 
     def _choose_from_ND(self, ND):
         # Return a random node from ND
@@ -437,7 +437,7 @@ class MOAsolver:
             return False
 
                 
-    def MOA(self, verbose=0, f=None):
+    def MOA(self, verbose=0):
 
         iter = 0
         while(True):
@@ -460,7 +460,7 @@ class MOAsolver:
             if len(ND) == 0:
                 if verbose==1:
                     print("******************************")
-                self._terminate(f=f)
+                self._terminate()
                 break
 
             ###### Select ######
@@ -575,10 +575,10 @@ class DFBBsolver:
         # Backtrack
         return True
 
-    def terminate(self, f=None):
-        f.write("SOLUTIONS FOUND -\n")
+    def terminate(self):
+        print("SOLUTIONS FOUND -")
         for item in self.BEST_COSTS:
-            f.write("Cost: %s\tPath: %s\n"%(str(item['G']), str(list(item['node']))))
+            print("\tCost: ", item['G'], "\tPath: ", list(item['node']))
 
     def is_goal(self, state):
 
@@ -588,7 +588,7 @@ class DFBBsolver:
         else:
             return False
 
-    def DFBB(self, verbose=0, f=None):
+    def DFBB(self, verbose=0):
 
         def accrued_non_dominated_paths(n):
             ND = {'G' : []}
@@ -620,7 +620,7 @@ class DFBBsolver:
             if len(self.OPEN) == 0:
                 if verbose==1:
                     print("******************************")
-                self.terminate(f=f)
+                self.terminate()
                 break
 
             # Pick a state from OPEN and put it in CLOSED
@@ -992,7 +992,7 @@ class IDMOAsolver:
 
         return SOLUTIONS
 
-    def IDMOA(self, verbose=0, f=None):
+    def IDMOA(self, verbose=0):
 
         # Step 1: Perform IDA* on the first objective
         # to obtain the optimum solution in terms of the same
@@ -1013,9 +1013,9 @@ class IDMOAsolver:
 
         self.SOLUTIONS = self.non_dominated_best_costs()
 
-        f.write("SOLUTIONS FOUND -\n")
+        print("SOLUTIONS FOUND -")
         for item in self.SOLUTIONS:
-            f.write("Cost: %s\tPath: %s\n"%(str(item['G']), str(list(item['node']))))
+            print("\tCost: ", item['G'], "\tPath: ", list(item['node']))
 
 def main():
     
@@ -1040,67 +1040,5 @@ def main():
     print("\nUsing IDMOA*")
     idmoa.IDMOA(verbose=0)
 
-def generate_results():
-
-    inputdir = "./input/"
-    outdir = "./output/"
-    
-    for i in range(10):
-
-        num_vertices = 5
-
-        edge_path = inputdir+"tsp_final_edges_5_"+str(i)+".csv"
-        outpath = outdir+"tsp_final_5_"+str(i)+".out"
-
-        with open(outpath, 'w') as f:
-            G1 = Graph(0, num_vertices, edge_path=edge_path)
-            moa = MOAsolver(G1)
-
-            f.write("Using MOA*\n")
-            moa.MOA(verbose=0, f=f)
-
-            G2 = Graph(0, num_vertices, edge_path=edge_path)
-            dfbb = DFBBsolver(G2)
-
-            f.write("\nUsing DFBB\n")
-            dfbb.DFBB(verbose=0, f=f)
-
-            G3 = Graph(0, num_vertices, edge_path=edge_path)
-            idmoa = IDMOAsolver(G3)
-
-            f.write("\nUsing IDMOA*\n")
-            idmoa.IDMOA(verbose=0, f=f)
-
-    for i in range(10):
-
-        num_vertices = 10
-
-        edge_path = inputdir+"tsp_final_edges_10_"+str(i)+".csv"
-        outpath = outdir+"tsp_final_10_"+str(i)+".out"
-
-        with open(outpath, 'w') as f:
-            # G1 = Graph(0, num_vertices, edge_path=edge_path)
-            # moa = MOAsolver(G1)
-
-            # f.write("Using MOA*\n")
-            # moa.MOA(verbose=0, f=f)
-
-            print(i, 1)
-
-            G2 = Graph(0, num_vertices, edge_path=edge_path)
-            dfbb = DFBBsolver(G2)
-
-            f.write("\nUsing DFBB\n")
-            dfbb.DFBB(verbose=0, f=f)
-
-            # print(i, 2)
-
-            # G3 = Graph(0, num_vertices, edge_path=edge_path)
-            # idmoa = IDMOAsolver(G3)
-
-            # f.write("\nUsing IDMOA*\n")
-            # idmoa.IDMOA(verbose=0, f=f)
-
-
 if __name__ == '__main__':
-    generate_results()
+    main()
