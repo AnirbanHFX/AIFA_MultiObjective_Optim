@@ -1071,36 +1071,5 @@ def generate_results():
             f.write("\nUsing IDMOA*\n")
             idmoa.IDMOA(verbose=0, f=f)
 
-    for i in range(10):
-
-        num_vertices = 10
-
-        edge_path = inputdir+"tsp_final_edges_10_"+str(i)+".csv"
-        outpath = outdir+"tsp_final_10_"+str(i)+".out"
-
-        with open(outpath, 'w') as f:
-            # G1 = Graph(0, num_vertices, edge_path=edge_path)
-            # moa = MOAsolver(G1)
-
-            # f.write("Using MOA*\n")
-            # moa.MOA(verbose=0, f=f)
-
-            print(i, 1)
-
-            G2 = Graph(0, num_vertices, edge_path=edge_path)
-            dfbb = DFBBsolver(G2)
-
-            f.write("\nUsing DFBB\n")
-            dfbb.DFBB(verbose=0, f=f)
-
-            # print(i, 2)
-
-            # G3 = Graph(0, num_vertices, edge_path=edge_path)
-            # idmoa = IDMOAsolver(G3)
-
-            # f.write("\nUsing IDMOA*\n")
-            # idmoa.IDMOA(verbose=0, f=f)
-
-
 if __name__ == '__main__':
     generate_results()

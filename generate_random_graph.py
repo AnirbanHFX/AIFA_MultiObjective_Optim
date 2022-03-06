@@ -31,7 +31,7 @@ def generate_random_fully_connected_graph(num_nodes = 5, objective_bounds = [[50
         nx.draw(G, pos, node_color='red', with_labels=True)
     labels = nx.get_edge_attributes(G,'weight')
     nx.draw_networkx_edge_labels(G,pos,edge_labels=labels,font_size=8)
-    plt.savefig("./input/tsp_final"+suffix+".png")
+    plt.savefig(outdir+"tsp_final"+suffix+".png")
     plt.clf()
 
     return edge_list
