@@ -31,7 +31,7 @@ class Graph:
 
     def add_state(self, state, heuristic_vector):
         """
-        Add a vertex with specified heuristic vector
+        Add a state with specified heuristic vector
         """
         assert isinstance(state, tuple)
         #assert len(heuristic_vector) == 2
@@ -183,7 +183,7 @@ class Graph:
 
     def read_graph(self, edge_path):
         """
-        Read vertices and edges from csv files
+        Read edges from csv files
 
         Edge file format -
 
@@ -253,8 +253,8 @@ class MOAsolver:
 
         def not_dominated(state1, state2, verbose=0):
             """
-            IF there is at least 1 cost vector in vertex1 that is not dominated by
-            any cost vector in vertex2
+            IF there is at least 1 cost vector in state1 that is not dominated by
+            any cost vector in state2
             """
             if isinstance(state2, tuple):
                 second_iterator = self.graph.state_list[state2]['F']
@@ -278,28 +278,30 @@ class MOAsolver:
             
             return False # No F1 has been found so return False
 
-        # Check whether other a vertex is not dominated by any other potential solution represented by another vertex
+        # Check whether a state is not dominated by any other
+        # potential solution represented by another state
         temp_ND = []
         for state in states:
             nd_flag = True
             for other_state in states:
                 if state != other_state:
                     if not not_dominated(state, other_state):
-                        # If vertex1 is not not-dominated by the other vertex, vertex1 does not belong in ND
+                        # If state1 is not not-dominated by the other state,
+                        # state1 does not belong in ND
                         nd_flag = False
                         break
             if nd_flag is True:
                 temp_ND.append(state)
 
-        # Check whether a vertex that qualified the previous round is also not dominated by any existing solution
+        # Check whether a state that qualified the previous round 
+        # is also not dominated by any existing solution
         for state in temp_ND:
             flag = True
-            for goal in self.SOLUTION:    #TODO: Check data structure of SOLUTION_COSTS and cost
-                                                #      Current assumption - cost is a single vector (tuple)
-                cost = self.SOLUTION[goal]['G']    # Should return a list
+            for goal in self.SOLUTION: 
+                cost = self.SOLUTION[goal]['G']
                 assert isinstance(cost, list)
                 if not not_dominated(state, cost):
-                    # vertex does not have a single F that is not dominated by cost
+                    # state does not have a single F that is not dominated by cost
                     flag = False
                     break
             if flag is True:
@@ -313,7 +315,7 @@ class MOAsolver:
             print("\tCost: ", self.SOLUTION[state]['G'][0], "\tPath: ", list(state))
 
     def _choose_from_ND(self, ND):
-        # TODO: Use domain specific heuristic to choose from ND
+        # Return a random node from ND
         return ND[0]
 
     def _remove_dominated_solutions(self):
@@ -468,8 +470,8 @@ class MOAsolver:
 
             ####### Identify Solutions #######
             if self.is_goal(n):
-                # If n is a goal node
-                # Add its cost vectors to SOLUTIONS COSTS
+                # If n is a goal state
+                # Add its cost vectors to SOLUTION
                 if n not in self.SOLUTION:
                     self.SOLUTION[n] = {'G' : []}
                     assert isinstance(self.graph.state_list[n]['G'], list)
@@ -500,7 +502,7 @@ class DFBBsolver:
         self.start_node = self.graph.start_node
         start_node = self.start_node
 
-        # Create Open list initialized with the start node
+        # Create Open list initialized with the start state
         assert start_node in graph.adjacency_list
         start_state = tuple([start_node])
         self.OPEN = set([start_state])
@@ -508,7 +510,7 @@ class DFBBsolver:
         self.graph.generate_state(start_state)
         self.graph.state_list[start_state]['G'].append((0, 0))
         self.graph.state_list[start_state]['H']
-        # For each G associated with the node, assign an F[i] = G[i] + H
+        # For each G associated with the state, assign an F[i] = G[i] + H
         self.graph.state_list[start_state]['F'].append(tuple([sum(x) for x in zip(
             self.graph.state_list[start_state]['G'][0],
             self.graph.state_list[start_state]['H']
@@ -533,12 +535,6 @@ class DFBBsolver:
                 temp = True     # at least 1 elem1 > elem2 satisfied
         return temp
 
-    def cost_equivalent(self, F1, F2):
-        """
-        Check if two costs are equivalent
-        """
-        return F1 == F2
-
     def non_dominated_best_costs(self):
         """
         Find set of non-dominated costs in BEST_COSTS
@@ -561,7 +557,7 @@ class DFBBsolver:
 
     def backtrack(self, node):
         """
-        Backtrack if there does not exist any F in node that is not-dominated by any Best-Cost
+        Backtrack if there does not exist any F in node that is not-dominated by all Best-Costs
         """
         for F in self.graph.state_list[node]['F']:
             flag = True
@@ -627,11 +623,11 @@ class DFBBsolver:
                 self.terminate()
                 break
 
-            # Pick a node from OPEN and put it in CLOSED
+            # Pick a state from OPEN and put it in CLOSED
             node = self.OPEN.pop()
             self.CLOSED.add(node)
 
-            # Decide whether to backtrack from node
+            # Decide whether to backtrack from state
             if self.backtrack(node):
                 if verbose==1:
                     print("BACKTRACK: ", node)
@@ -640,7 +636,7 @@ class DFBBsolver:
                 continue
             else:
                 if node[-1] not in self.graph.adjacency_list:
-                    # Leaf node detected
+                    # Leaf city detected
                     # Not possible in TSP hence must assert false
                     raise Exception("Graph cannot be traversed by salesperson")
                     # Backtrack
@@ -653,10 +649,10 @@ class DFBBsolver:
                     if verbose==1:
                         print("EXPAND: ", node)
 
-            # Get next nodes
+            # Get next states
             next_state_list = self.graph.get_next_states(node)
 
-            # Expand this node if we do not backtrack
+            # Expand this state if we do not backtrack
             for next_node_dict in next_state_list:
 
                 next_node = next_node_dict['next']
@@ -666,7 +662,7 @@ class DFBBsolver:
                     # Generate new TSP state at runtime
                     self.graph.generate_state(next_node)
 
-                # Compute G for next node
+                # Compute G for next state
                 for G in self.graph.state_list[node]['G']:
                     nextG = tuple([sum(x) for x in zip(
                         G,
@@ -692,7 +688,7 @@ class DFBBsolver:
                 if next_node in self.CLOSED:
                     self.CLOSED.remove(next_node)
 
-                # Update best costs if next_node is goal node
+                # Update best costs if next_node is goal state
                 if self.is_goal(next_node):
                     for G in self.graph.state_list[next_node]['G']:
                         self.BEST_COSTS.append(
@@ -1021,13 +1017,13 @@ class IDMOAsolver:
 def main():
     
     edge_path = "./input/tsp_final_edges.csv"
-    num_vertices = 10
+    num_vertices = 5
 
-    # G1 = Graph(0, num_vertices, edge_path=edge_path)
-    # moa = MOAsolver(G1)
+    G1 = Graph(0, num_vertices, edge_path=edge_path)
+    moa = MOAsolver(G1)
 
-    # print("Using MOA*")
-    # moa.MOA(verbose=0)
+    print("Using MOA*")
+    moa.MOA(verbose=0)
 
     G2 = Graph(0, num_vertices, edge_path=edge_path)
     dfbb = DFBBsolver(G2)
