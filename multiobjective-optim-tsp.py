@@ -1,8 +1,6 @@
 import csv
 import copy
 
-from numpy import isin
-
 class Graph:
 
     def __init__(self, start_node, num_vertex, edge_path=None):
@@ -12,6 +10,8 @@ class Graph:
         self._num_vertices = num_vertex
         if (edge_path is not None):
             self.read_graph(edge_path)
+
+        self._heuristic_mem = {}
 
     @property
     def adjacency_list(self):
@@ -62,12 +62,76 @@ class Graph:
         Reset costs and paths accrued over the course of some prior search algorithm
         """
         self.state_list = {}
+        self._heuristic_mem = {}
 
     def get_heuristic(self, state):
         """
         Get heuristic for a state
+        Input -
+            state : partial path traversed by travelling salesperson
+        Methodology -
+            If a new partial path is encountered which has a set of nodes that have not been seen before
+                Compute shortest paths from all sources to all destinations through {(set of nodes not in partial path) V (last node in partial path)}
+                Add these shortest paths to memory
+                Return shortest path from (last node in partial path) to (goal node)
+            Else
+                Return shortest path which has been stored in memory
         """
-        return tuple([0, 0])
+
+        inf = 1e10
+        
+        state_set = frozenset(state)
+
+        if state_set in self._heuristic_mem:
+            if state[-1] in self._heuristic_mem[state_set]:
+                return tuple(self._heuristic_mem[state_set][state[-1]][state[-1]][self.start_node])
+        
+        # Get the list of remaining vertices
+        if state[-1] == self.start_node:
+            remaining_vertices = [self.start_node]
+        else:
+            remaining_vertices = [self.start_node, state[-1]]
+        for i in range(self._num_vertices):
+            if i not in state_set:
+                remaining_vertices.append(i)
+
+        dist = {}
+
+        # Initialize table of shortest paths
+        for elem1 in remaining_vertices:
+            assert isinstance(elem1, int)
+            dist[elem1] = {}
+            for elem2 in remaining_vertices:
+                assert isinstance(elem2, int)
+                if elem1 == elem2:
+                    dist[elem1][elem2] = [0, 0]
+                else:
+                    flag = False
+                    for next_dict in self.adjacency_list[elem1]:
+                        if next_dict['next'] == elem2:
+                            dist[elem1][elem2] = list(next_dict['cost'])
+                            assert len(dist[elem1][elem2]) == 2
+                            flag = True
+                            break
+                    if not flag:    # Direct path does not exist
+                        dist[elem1][elem2] = [inf, inf]
+
+        for elem3 in remaining_vertices:
+            for elem1 in remaining_vertices:
+                for elem2 in remaining_vertices:
+                    if dist[elem1][elem3][0] + dist[elem3][elem2][0] < dist[elem1][elem2][0]:
+                         dist[elem1][elem2][0] = dist[elem1][elem3][0] + dist[elem3][elem2][0]
+                    if dist[elem1][elem3][1] + dist[elem3][elem2][1] < dist[elem1][elem2][1]:
+                         dist[elem1][elem2][1] = dist[elem1][elem3][1] + dist[elem3][elem2][1]
+
+        if state_set in self._heuristic_mem:
+            # state[-1] not in self._heuristic_mem[state_set]
+            self._heuristic_mem[state_set][state[-1]] = dist
+        else:
+            self._heuristic_mem[state_set] = {state[-1] : dist}
+
+        return tuple(dist[state[-1]][self.start_node])
+
 
     def generate_state(self, state):
         """
@@ -75,6 +139,10 @@ class Graph:
         """
         assert isinstance(state, tuple)
         if state not in self.state_list:
+            heuristic = self.get_heuristic(state)
+            assert isinstance(heuristic, tuple)
+            for elem in heuristic:
+                assert elem < 1e8
             self.add_state(state, self.get_heuristic(state))
 
     def get_next_states(self, state):
@@ -189,9 +257,9 @@ class MOAsolver:
             any cost vector in vertex2
             """
             if isinstance(state2, tuple):
-                second_iterator = self.graph.state_list[state2]['F']
+                second_iterator = copy.deepcopy(self.graph.state_list[state2]['F'])
             else:
-                second_iterator = list(state2)
+                second_iterator = copy.deepcopy(list(state2))
 
             for F1 in self.graph.state_list[state1]['F']:
                 flag = True
@@ -932,7 +1000,7 @@ class IDMOAsolver:
         item = self.IDA_1(verbose=verbose)
 
         # Get the threshold for the second objective
-        new_threshold = item['F'][0][1]
+        new_threshold = int(item['F'][0][1])
 
         self.reset()
         unfiltered_solutions = self.IDA_2(new_threshold, verbose=verbose)
