@@ -1017,7 +1017,7 @@ class IDMOAsolver:
 def main():
     
     edge_path = "./input/tsp_final_edges.csv"
-    num_vertices = 5
+    num_vertices = 7
 
     G1 = Graph(0, num_vertices, edge_path=edge_path)
     moa = MOAsolver(G1)
