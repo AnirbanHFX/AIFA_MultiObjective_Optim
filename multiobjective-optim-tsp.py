@@ -768,36 +768,36 @@ class IDMOAsolver:
         assert objective_idx <= 1 and objective_idx >= 0
         assert isinstance(threshold, int)
         if objective_idx == 0:
-            assert len(self.graph.state_list[node]['G']) == 1
-            cost = self.graph.state_list[node]['G'][0][objective_idx]
+            assert len(self.graph.state_list[node]['F']) == 1
+            cost = self.graph.state_list[node]['F'][0][objective_idx]
             if cost > threshold:
                 return True
             else:
                 return False
         else:
-            if len(self.graph.state_list[node]['G']) == 1:
-                cost = self.graph.state_list[node]['G'][0][objective_idx]
+            if len(self.graph.state_list[node]['F']) == 1:
+                cost = self.graph.state_list[node]['F'][0][objective_idx]
                 if cost > threshold:
                     return True
                 else:
                     return False
             else:
                 cntr = 0
-                remove_G = []
-                for G in self.graph.state_list[node]['G']:
-                    cost = G[objective_idx]
+                remove_F = []
+                for F in self.graph.state_list[node]['F']:
+                    cost = F[objective_idx]
                     if cost > threshold:
-                        remove_G.append(G)
+                        remove_F.append(F)
                         cntr += 1
-                if cntr == len(self.graph.state_list[node]['G']):
+                if cntr == len(self.graph.state_list[node]['F']):
                     # All of the paths are worthless
-                    self.graph.state_list[node]['G'] = []
+                    self.graph.state_list[node]['F'] = []
                     return True      # So backtrack
                 else:
                     # Some good paths exist, so don't backtrack but remove bad paths
-                    for G in remove_G:
-                        idx = self.graph.state_list[node]['G'].index(G)
-                        self.graph.state_list[node]['G'].pop(idx)
+                    for F in remove_F:
+                        idx = self.graph.state_list[node]['F'].index(F)
+                        self.graph.state_list[node]['F'].pop(idx)
                     return False    # Do not backtrack
 
     def cost_dominates(self, F1, F2, objective_idx):
@@ -1017,7 +1017,7 @@ class IDMOAsolver:
 def main():
     
     edge_path = "./input/tsp_final_edges.csv"
-    num_vertices = 20
+    num_vertices = 5
 
     # G1 = Graph(0, num_vertices, edge_path=edge_path)
     # moa = MOAsolver(G1)
@@ -1031,11 +1031,11 @@ def main():
     print("\nUsing DFBB")
     dfbb.DFBB(verbose=0)
 
-    # G3 = Graph(0, num_vertices, edge_path=edge_path)
-    # idmoa = IDMOAsolver(G3)
+    G3 = Graph(0, num_vertices, edge_path=edge_path)
+    idmoa = IDMOAsolver(G3)
 
-    # print("\nUsing IDMOA*")
-    # idmoa.IDMOA(verbose=0)
+    print("\nUsing IDMOA*")
+    idmoa.IDMOA(verbose=0)
 
 
 if __name__ == '__main__':
