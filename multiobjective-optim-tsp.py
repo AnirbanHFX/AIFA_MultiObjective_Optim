@@ -257,9 +257,9 @@ class MOAsolver:
             any cost vector in vertex2
             """
             if isinstance(state2, tuple):
-                second_iterator = copy.deepcopy(self.graph.state_list[state2]['F'])
+                second_iterator = self.graph.state_list[state2]['F']
             else:
-                second_iterator = copy.deepcopy(list(state2))
+                second_iterator = list(state2)
 
             for F1 in self.graph.state_list[state1]['F']:
                 flag = True
