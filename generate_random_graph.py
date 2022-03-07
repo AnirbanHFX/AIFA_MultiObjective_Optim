@@ -36,6 +36,34 @@ def generate_random_fully_connected_graph(num_nodes = 5, objective_bounds = [[50
 
     return edge_list
 
+def generate_random_fully_connected_graph_2(num_nodes = 5, objective_bounds = [[5,100],[5,100]], outdir="./input/", suffix=""):
+    edge_list = []
+
+    G=nx.Graph()
+    for i in range(num_nodes):
+        G.add_node(i)
+
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            if j > i:
+                cost_ = []
+                for e in objective_bounds:
+                    cost_.append(random.randint(e[0],e[1]))
+                ch1 = i
+                ch2 = j
+                edge_list.append([ch1, ch2, *cost_])
+                edge_list.append([ch2, ch1, *cost_])
+                G.add_edge(ch1, ch2, weight=cost_, dist=sum(cost_))
+ 
+    pos = nx.circular_layout(G)
+    nx.draw(G, pos, with_labels=True)
+    labels = nx.get_edge_attributes(G,'weight')
+    nx.draw_networkx_edge_labels(G,pos,edge_labels=labels)
+    plt.savefig(outdir+"tsp_final"+suffix+".png")
+    plt.clf()
+
+    return edge_list
+
 def main():
 
     parser = argparse.ArgumentParser()
@@ -44,21 +72,27 @@ def main():
 
     outdir = "./input/"
 
-    for i in range(10):
-        filename = "tsp_final_edges_5_"+str(i)+".csv"
-        edges = generate_random_fully_connected_graph(num_nodes=5, outdir=outdir, suffix="_5_"+str(i))
+    # for i in range(10):
+    #     filename = "tsp_final_edges_5_"+str(i)+".csv"
+    #     edges = generate_random_fully_connected_graph(num_nodes=5, suffix="_5_"+str(i))
 
-        with open(outdir+filename, 'w', newline='') as f:
-            write = csv.writer(f, delimiter=',')
-            write.writerows(edges)
+    #     with open(outdir+filename, 'w', newline='') as f:
+    #         write = csv.writer(f, delimiter=',')
+    #         write.writerows(edges)
 
     for i in range(10):
         filename = "tsp_final_edges_10_"+str(i)+".csv"
-        edges = generate_random_fully_connected_graph(num_nodes=10, outdir=outdir, suffix="_10_"+str(i))
+        edges = generate_random_fully_connected_graph_2(num_nodes=10, suffix="_10_"+str(i))
 
         with open(outdir+filename, 'w', newline='') as f:
             write = csv.writer(f, delimiter=',')
             write.writerows(edges)
+
+    # edges_reduced = generate_random_fully_connected_graph(num_nodes=4, outdir="./", suffix="_4")
+
+    # with open("./tsp_final_4.csv", 'w', newline='') as f:
+    #     write = csv.writer(f, delimiter=',')
+    #     write.writerows(edges_reduced)
 
 if __name__ == '__main__':
     main()

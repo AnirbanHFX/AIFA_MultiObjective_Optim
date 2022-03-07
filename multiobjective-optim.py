@@ -1,12 +1,15 @@
 import csv
 import copy
-from xml.etree.ElementPath import find
+import networkx as nx
+import math
+from matplotlib import pyplot as plt
 
 class Graph:
 
     def __init__(self, vertex_path=None, edge_path=None):
         self._adjacency_list = {}
         self._vertex_list = {}
+        self.goal_list = [10, 11, 12]
         if (vertex_path is not None) and (edge_path is not None):
             self.read_graph(vertex_path, edge_path)
 
@@ -70,7 +73,7 @@ class Graph:
             self.vertex_list[vertex]['F'] = []
             self.vertex_list[vertex]['path'] = []
 
-    def read_graph(self, vertex_path, edge_path):
+    def read_graph(self, vertex_path, edge_path, path="./test_graph.png"):
         """
         Read vertices and edges from csv files
 
@@ -86,6 +89,8 @@ class Graph:
         
         """
 
+        nxg = nx.Graph()
+
         with open(vertex_path, 'r') as f1:
             reader = csv.reader(f1)
             for row in reader:
@@ -94,6 +99,7 @@ class Graph:
                     vertex=int(row[0]),
                     heuristic_vector=heuristic_vector
                 )
+                nxg.add_node(int(row[0]))
 
         with open(edge_path, 'r') as f2:
             reader = csv.reader(f2)
@@ -104,6 +110,27 @@ class Graph:
                     vertex_B=int(row[1]),
                     cost_vector=cost_vector
                 )
+                nxg.add_edge(int(row[0]), int(row[1]), weight=cost_vector, dist=sum(cost_vector))
+
+        node_colors = []
+        for node in nxg.nodes():
+            if node in self.goal_list:
+                node_colors.append('red')
+            else:
+                node_colors.append('cyan')
+
+
+        pos = nx.spectral_layout(nxg, weight="dist")
+        options = {
+            'arrowstyle': '-|>'
+            #'node_color': 'red'
+        }
+        nx.draw_networkx(nxg, pos, arrows=True, node_color=node_colors, **options)
+        labels = nx.get_edge_attributes(nxg,'weight')
+        nx.draw_networkx_edge_labels(nxg,pos,edge_labels=labels, font_size=6)
+        #nx.draw_networkx_edges(nxg,pos,arrows=True)
+        plt.savefig(path)
+        plt.clf()
 
 class MOAsolver:
 
@@ -412,7 +439,6 @@ class DFBBsolver:
         # Initialize empty lists for CLOSED, SOLUTION, BEST_COST
         self.BEST_COSTS = [{'node' : -1, 'G' : (1e10, 1e10), 'path' : []}]
         self.CLOSED = set([])
-        self.LABEL = {}
 
     def cost_dominates(self, F1, F2):
         """
@@ -476,39 +502,9 @@ class DFBBsolver:
         return True
 
     def terminate(self):
-        self.BEST_COSTS = self.non_dominated_best_costs()
         print("SOLUTIONS FOUND -")
         for item in self.BEST_COSTS:
             print("Goal: ", item['node'], "\tCost: ", item['G'], "\tPath: ", item['path'])
-
-    def non_dominated_best_costs(self):
-        """
-        Find set of non-dominated costs in BEST_COSTS
-        """
-        ND = []
-        for item1 in self.BEST_COSTS:
-            nd_flag = True
-            for item2 in self.BEST_COSTS:
-                if item1 != item2:
-                    if self.cost_dominates(item2['G'], item1['G']):
-                        # item2 dominates item1
-                        # item1 is not a candidate for ND
-                        nd_flag = False
-                        break
-            if nd_flag is True:
-                # No other item in BEST_COSTS dominates item1
-                # item1 is non-dominated
-                ND.append(item1)
-        pop_idx = set()
-        clean_ND = []
-        for i in range(len(ND)):
-            for j in range(i+1, len(ND)):
-                if ND[i]['G'] == ND[j]['G'] and ND[i]['path'] == ND[j]['path']:
-                    pop_idx.add(i)
-        for i in range(len(ND)):
-            if i not in pop_idx:
-                clean_ND.append(ND[i])
-        return clean_ND
 
     def DFBB(self, verbose=0):
 
@@ -550,13 +546,6 @@ class DFBBsolver:
             node = self.OPEN.pop()
             self.CLOSED.add(node)
 
-            if node in self.goal_nodes:
-                for G, path in zip(self.graph.vertex_list[node]['G'], self.graph.vertex_list[node]['path']):
-                    self.BEST_COSTS.append({
-                        'node' : node, 
-                        'G' : G, 
-                        'path' : path})
-
             # Decide whether to backtrack from node
             if self.backtrack(node):
                 if verbose==1:
@@ -577,78 +566,57 @@ class DFBBsolver:
                     if verbose==1:
                         print("EXPAND: ", node)
 
+            # Expand this node if we do not backtrack
             for next_node_dict in self.graph.adjacency_list[node]:
+
                 next_node = next_node_dict['next']
                 cost = next_node_dict['cost']
 
-                if next_node not in self.OPEN and next_node not in self.CLOSED:
-                    # Add costs
-                    for G in self.graph.vertex_list[node]['G']:
-                        nextG = tuple([sum(x) for x in zip(
-                            G,
-                            cost
-                        )])
-                        assert (len(nextG) == 2)
-                        self.graph.vertex_list[next_node]['G'].append(nextG)
-                    # Establish backpointers
-                    for path in self.graph.vertex_list[node]['path']:
-                        self.graph.vertex_list[next_node]['path'].append([*path, next_node])
-                    # Set LABEL(next_node, node)
-                    self.LABEL[(next_node, node)] = accrued_non_dominated_paths(next_node)  #TODO: Check correctness of LABEL(n,n') and LABEL(n',n)
-                    assert isinstance(self.LABEL[(next_node, node)]['G'], list)
-                    assert isinstance(self.LABEL[(next_node, node)]['path'], list)
-                    self.graph.vertex_list[next_node]['G'] = copy.deepcopy(self.LABEL[(next_node, node)]['G'])
-                    self.graph.vertex_list[next_node]['path'] = copy.deepcopy(self.LABEL[(next_node, node)]['path'])
+                # Compute G for next node
+                for G in self.graph.vertex_list[node]['G']:
+                    nextG = tuple([sum(x) for x in zip(
+                        G,
+                        cost
+                    )])
+                    assert (len(nextG) == 2)
+                    self.graph.vertex_list[next_node]['G'].append(nextG)
+                # Establish backpointers
+                for path in self.graph.vertex_list[node]['path']:
+                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
 
-                    self.graph.vertex_list[next_node]['F'] = []
-                    for G in self.graph.vertex_list[next_node]['G']:
-                        self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
-                            G,
-                            self.graph.vertex_list[next_node]['H']
-                        )]))
+                # Find non-dominated costs
+                nd_costs = accrued_non_dominated_paths(next_node)
+                assert isinstance(nd_costs['G'], list)
+                assert isinstance(nd_costs['path'], list)
+                self.graph.vertex_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
+                self.graph.vertex_list[next_node]['path'] = copy.deepcopy(nd_costs['path'])
 
-                    self.OPEN.add(next_node)
+                # Update F for next_node
+                self.graph.vertex_list[next_node]['F'] = []
+                for G in self.graph.vertex_list[next_node]['G']:
+                    self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
+                        G,
+                        self.graph.vertex_list[next_node]['H']
+                    )]))
 
-                else:
-                    for G, path in zip(self.graph.vertex_list[node]['G'], self.graph.vertex_list[node]['path']):
-                        # Check new cost vectors 'nextG'
-                        nextG = tuple([sum(x) for x in zip(
-                            G,
-                            cost
-                        )])
-                        assert (len(nextG) == 2)
+                self.OPEN.add(next_node)
+                if next_node in self.CLOSED:
+                    self.CLOSED.remove(next_node)
 
-                        if (next_node, node) not in self.LABEL:
-                            self.LABEL[(next_node, node)] = {'G' : [], 'path' : []}
-                        if nextG not in self.LABEL[(next_node, node)]['G']:
-                            flag = True
-                            for G2 in self.LABEL[(next_node, node)]['G']:
-                                if self.cost_dominates(G2, nextG):
-                                    # G2 dominates nextG
-                                    # nextG is not a candidate to be added to LABEL
-                                    flag = False
-                                    break
-                            if flag is True:
-                                self.LABEL[(next_node, node)]['G'].append(nextG)
-                                self.LABEL[(next_node, node)]['path'].append([*path, next_node])
+                # Update best costs if next_node is goal node
+                if next_node in self.goal_nodes:
+                    for G, path in zip(self.graph.vertex_list[next_node]['G'], self.graph.vertex_list[next_node]['path']):
+                        self.BEST_COSTS.append(
+                            {'node' : next_node, 
+                            'G' : G,
+                            'path' : path
+                            }
+                        )
+                    # Only keep those best costs that are not dominated by any other
+                    self.BEST_COSTS = self.non_dominated_best_costs()
 
-                                assert nextG not in self.graph.vertex_list[next_node]['G']
-                                if nextG not in self.graph.vertex_list[next_node]['G']:
-                                    self.graph.vertex_list[next_node]['G'].append(nextG)
-                                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
-
-                                iterator = copy.deepcopy(self.LABEL[(next_node, node)]['G'])
-                                for G2 in iterator:
-                                    if self.cost_dominates(nextG, G2):
-                                        # new G strictly dominates G2
-                                        # So remove G2
-                                        idx = self.LABEL[(next_node, node)]['G'].index(G2)
-                                        self.LABEL[(next_node, node)]['G'].pop(idx)
-                                        self.LABEL[(next_node, node)]['path'].pop(idx)
-                                
-                                if next_node in self.CLOSED:
-                                    self.CLOSED.remove(next_node)
-                                    self.OPEN.add(next_node)
+            if verbose==1:
+                print("******************************")
 
 class IDMOAsolver:
 
@@ -666,7 +634,6 @@ class IDMOAsolver:
         assert start_node in graph.vertex_list
 
         self.SOLUTIONS = []
-        self.LABEL = {}
 
         self.reset()
 
@@ -719,7 +686,7 @@ class IDMOAsolver:
         assert objective_idx <= 1 and objective_idx >= 0
         assert isinstance(threshold, int)
         if objective_idx == 0:
-            #assert len(self.graph.vertex_list[node]['G']) == 1
+            assert len(self.graph.vertex_list[node]['G']) == 1
             cost = self.graph.vertex_list[node]['G'][0][objective_idx]
             if cost > threshold:
                 return True
@@ -742,8 +709,8 @@ class IDMOAsolver:
                         cntr += 1
                 if cntr == len(self.graph.vertex_list[node]['G']):
                     # All of the paths are worthless
-                    # self.graph.vertex_list[node]['G'] = []
-                    # self.graph.vertex_list[node]['path'] = []
+                    self.graph.vertex_list[node]['G'] = []
+                    self.graph.vertex_list[node]['path'] = []
                     return True      # So backtrack
                 else:
                     # Some good paths exist, so don't backtrack but remove bad paths
@@ -857,77 +824,40 @@ class IDMOAsolver:
                 print("******************************")
 
             for next_node_dict in self.graph.adjacency_list[node]:
+
                 next_node = next_node_dict['next']
                 cost = next_node_dict['cost']
 
-                if next_node not in self.OPEN and next_node not in self.CLOSED:
-                    # Add costs
-                    for G in self.graph.vertex_list[node]['G']:
-                        nextG = tuple([sum(x) for x in zip(
-                            G,
-                            cost
-                        )])
-                        assert (len(nextG) == 2)
-                        self.graph.vertex_list[next_node]['G'].append(nextG)
-                    # Establish backpointers
-                    for path in self.graph.vertex_list[node]['path']:
-                        self.graph.vertex_list[next_node]['path'].append([*path, next_node])
-                    # Set LABEL(next_node, node)
-                    self.LABEL[(next_node, node)] = accrued_non_dominated_paths(next_node, objective_idx)  #TODO: Check correctness of LABEL(n,n') and LABEL(n',n)
-                    assert isinstance(self.LABEL[(next_node, node)]['G'], list)
-                    assert isinstance(self.LABEL[(next_node, node)]['path'], list)
-                    self.graph.vertex_list[next_node]['G'] = copy.deepcopy(self.LABEL[(next_node, node)]['G'])
-                    self.graph.vertex_list[next_node]['path'] = copy.deepcopy(self.LABEL[(next_node, node)]['path'])
+                # Compute G for next node
+                for G in self.graph.vertex_list[node]['G']:
+                    nextG = tuple([sum(x) for x in zip(
+                        G,
+                        cost
+                    )])
+                    assert (len(nextG) == 2)
+                    self.graph.vertex_list[next_node]['G'].append(nextG)
+                # Establish backpointers
+                for path in self.graph.vertex_list[node]['path']:
+                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
 
-                    self.graph.vertex_list[next_node]['F'] = []
-                    for G in self.graph.vertex_list[next_node]['G']:
-                        self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
-                            G,
-                            self.graph.vertex_list[next_node]['H']
-                        )]))
+                # Find non-dominated costs
+                nd_costs = accrued_non_dominated_paths(next_node, objective_idx)
+                assert isinstance(nd_costs['G'], list)
+                assert isinstance(nd_costs['path'], list)
+                self.graph.vertex_list[next_node]['G'] = copy.deepcopy(nd_costs['G'])
+                self.graph.vertex_list[next_node]['path'] = copy.deepcopy(nd_costs['path'])
 
-                    self.OPEN.add(next_node)
+                # Update F for next_node
+                self.graph.vertex_list[next_node]['F'] = []
+                for G in self.graph.vertex_list[next_node]['G']:
+                    self.graph.vertex_list[next_node]['F'].append(tuple([sum(x) for x in zip(
+                        G,
+                        self.graph.vertex_list[next_node]['H']
+                    )]))
 
-                else:
-                    for G, path in zip(self.graph.vertex_list[node]['G'], self.graph.vertex_list[node]['path']):
-                        # Check new cost vectors 'nextG'
-                        nextG = tuple([sum(x) for x in zip(
-                            G,
-                            cost
-                        )])
-                        assert (len(nextG) == 2)
-
-                        if (next_node, node) not in self.LABEL:
-                            self.LABEL[(next_node, node)] = {'G' : [], 'path' : []}
-                        if nextG not in self.LABEL[(next_node, node)]['G']:
-                            flag = True
-                            for G2 in self.LABEL[(next_node, node)]['G']:
-                                if self.cost_dominates(G2, nextG, objective_idx):
-                                    # G2 dominates nextG
-                                    # nextG is not a candidate to be added to LABEL
-                                    flag = False
-                                    break
-                            if flag is True:
-                                self.LABEL[(next_node, node)]['G'].append(nextG)
-                                self.LABEL[(next_node, node)]['path'].append([*path, next_node])
-
-                                assert nextG not in self.graph.vertex_list[next_node]['G']
-                                if nextG not in self.graph.vertex_list[next_node]['G']:
-                                    self.graph.vertex_list[next_node]['G'].append(nextG)
-                                    self.graph.vertex_list[next_node]['path'].append([*path, next_node])
-
-                                iterator = copy.deepcopy(self.LABEL[(next_node, node)]['G'])
-                                for G2 in iterator:
-                                    if self.cost_dominates(nextG, G2, objective_idx):
-                                        # new G strictly dominates G2
-                                        # So remove G2
-                                        idx = self.LABEL[(next_node, node)]['G'].index(G2)
-                                        self.LABEL[(next_node, node)]['G'].pop(idx)
-                                        self.LABEL[(next_node, node)]['path'].pop(idx)
-                                
-                                if next_node in self.CLOSED:
-                                    self.CLOSED.remove(next_node)
-                                    self.OPEN.add(next_node)
+                self.OPEN.add(next_node)
+                if next_node in self.CLOSED:
+                    self.CLOSED.remove(next_node)
 
         return BACKTRACKED
 
@@ -997,24 +927,23 @@ class IDMOAsolver:
         for item in self.SOLUTIONS:
             print("Goal: ", item['node'], "\tCost: ", item['G'], "\tPath: ", item['path'])
 
-
 def main():
     
-    vertex_path = "./input/normal_vertex_test.csv"
-    edge_path = "./input/normal_graph_test.csv"
+    vertex_path = "./input/test_graph_vertices.csv"
+    edge_path = "./input/test_graph_edges.csv"
 
     G1 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    moa = MOAsolver(G1, 0, [8, 9])
+    moa = MOAsolver(G1, 0, [10, 11, 12])
 
     moa.MOA(verbose=0)
 
     G2 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    dfbb = DFBBsolver(G2, 0, [8, 9])
+    dfbb = DFBBsolver(G2, 0, [10, 11, 12])
 
     dfbb.DFBB(verbose=0)
 
     G3 = Graph(vertex_path=vertex_path, edge_path=edge_path)
-    idmoa = IDMOAsolver(G3, 0, [8, 9])
+    idmoa = IDMOAsolver(G3, 0, [10, 11, 12])
 
     idmoa.IDMOA(verbose=0)
 

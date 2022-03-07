@@ -578,7 +578,11 @@ class DFBBsolver:
     def terminate(self, f=None):
         f.write("SOLUTIONS FOUND -\n")
         for item in self.BEST_COSTS:
-            f.write("Cost: %s\tPath: %s\n"%(str(item['G']), str(list(item['node']))))
+            # try:
+            f.write("Path - %s  Cost - %s\n"%(str(tuple(item['node'])), str(item['G'])))
+            # except:
+            #     print(item)
+            #f.write("Cost: %s\tPath: %s\n"%(str(item['G']), str(list(item['node']))))
 
     def is_goal(self, state):
 
@@ -849,6 +853,7 @@ class IDMOAsolver:
                 print("Iter: ", iter)
                 print("OPEN: ", self.OPEN)
                 print("CLOSED: ", self.CLOSED)
+                print("THRESHOLD: ", threshold)
                 iter += 1
 
             if len(self.OPEN) == 0:
@@ -979,6 +984,9 @@ class IDMOAsolver:
 
     def IDA_2(self, max_threshold, verbose=0):
 
+        if verbose == 1:
+            print("IDA 1 over, IDA 2 begins")
+
         SOLUTIONS = []
 
         self.reset()
@@ -1019,26 +1027,31 @@ class IDMOAsolver:
 
 def main():
     
-    edge_path = "./input/tsp_final_edges.csv"
-    num_vertices = 8
+    edge_path = "./tsp_final_4.csv"
+    num_vertices = 4
 
     G1 = Graph(0, num_vertices, edge_path=edge_path)
     moa = MOAsolver(G1)
 
-    print("Using MOA*")
-    moa.MOA(verbose=0)
+    outpath = "./tsp_final_4.out"
+    with open(outpath, 'w') as f:
+        # G1 = Graph(0, num_vertices, edge_path=edge_path)
+        # MOA = MOAsolver(G1)
 
-    G2 = Graph(0, num_vertices, edge_path=edge_path)
-    dfbb = DFBBsolver(G2)
+        # print("Using MOA*")
+        # moa.MOA(verbose=1, f=f)
 
-    print("\nUsing DFBB")
-    dfbb.DFBB(verbose=0)
+        G2 = Graph(0, num_vertices, edge_path=edge_path)
+        dfbb = DFBBsolver(G2)
 
-    G3 = Graph(0, num_vertices, edge_path=edge_path)
-    idmoa = IDMOAsolver(G3)
+        print("\nUsing DFBB")
+        dfbb.DFBB(verbose=1, f=f)
 
-    print("\nUsing IDMOA*")
-    idmoa.IDMOA(verbose=0)
+        # G3 = Graph(0, num_vertices, edge_path=edge_path)
+        # idmoa = IDMOAsolver(G3)
+
+        # print("\nUsing IDMOA*")
+        # idmoa.IDMOA(verbose=1, f=f)
 
 def generate_results():
 
@@ -1047,29 +1060,31 @@ def generate_results():
     
     for i in range(10):
 
-        num_vertices = 5
+        num_vertices = 10
 
-        edge_path = inputdir+"tsp_final_edges_5_"+str(i)+".csv"
-        outpath = outdir+"tsp_final_5_"+str(i)+".out"
+        edge_path = inputdir+"tsp_final_edges_10_"+str(i)+".csv"
+        outpath = outdir+"tsp_final_10_"+str(i)+".out"
 
         with open(outpath, 'w') as f:
-            G1 = Graph(0, num_vertices, edge_path=edge_path)
-            moa = MOAsolver(G1)
+            # G1 = Graph(0, num_vertices, edge_path=edge_path)
+            # moa = MOAsolver(G1)
 
-            f.write("Using MOA*\n")
-            moa.MOA(verbose=0, f=f)
+            # f.write("Using MOA*\n")
+            # moa.MOA(verbose=0, f=f)
+
+            print(i)
 
             G2 = Graph(0, num_vertices, edge_path=edge_path)
             dfbb = DFBBsolver(G2)
 
-            f.write("\nUsing DFBB\n")
+            #f.write("\nUsing DFBB\n")
             dfbb.DFBB(verbose=0, f=f)
 
-            G3 = Graph(0, num_vertices, edge_path=edge_path)
-            idmoa = IDMOAsolver(G3)
+            # G3 = Graph(0, num_vertices, edge_path=edge_path)
+            # idmoa = IDMOAsolver(G3)
 
-            f.write("\nUsing IDMOA*\n")
-            idmoa.IDMOA(verbose=0, f=f)
+            # f.write("\nUsing IDMOA*\n")
+            # idmoa.IDMOA(verbose=0, f=f)
 
 if __name__ == '__main__':
-    generate_results()
+    main()
